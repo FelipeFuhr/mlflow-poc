@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow-artifacts-server
+  namespace: mlflow
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/nginx: localhost/k8s-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow-artifacts-server
+  template:
+    metadata:
+      labels:
+        app: mlflow-artifacts-server
+    spec:
+      serviceAccountName: mlflow
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 2000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: mlflow-artifacts-server
+        image: mlflow-server
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/bash
+        - -c
+        - " mlflow server \
+            --host 0.0.0.0 \
+            --port 8787 \
+            --artifacts-destination ${ARTIFACTS_DESTINATION} \
+            --artifacts-only \
+            --gunicorn-opts '--log-level debug'"
+        env:
+        - name: ARTIFACTS_DESTINATION
+          valueFrom:
+            secretKeyRef:
+              name: mlflow-artifacts-server-secret
+              key: ARTIFACTS_DESTINATION
+        - name: MLFLOW_S3_ENDPOINT_URL
+          valueFrom:
+            configMapKeyRef:
+              name: mlflow-artifacts-server-configmap
+              key: MLFLOW_S3_ENDPOINT_URL
+        envFrom:
+        - secretRef:
+            name: access-cloud-secret
+        securityContext:
+          runAsUser: 10001
+          runAsGroup: 20001
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ['ALL']
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /home/application
+          name: application-volume
+          readOnly: false
+        resources:
+          requests:
+            memory: "500Mi"
+            cpu: "500m"
+          limits:
+            memory: "2000Mi"
+            cpu: "1000m"
+      volumes:
+      - name: application-volume
+        emptyDir: {}

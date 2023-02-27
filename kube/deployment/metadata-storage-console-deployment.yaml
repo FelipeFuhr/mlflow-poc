@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metadata-storage-console
+  namespace: mlflow
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/nginx: localhost/k8s-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metadata-storage-console
+  template:
+    metadata:
+      labels:
+        app: metadata-storage-console
+    spec:
+      serviceAccountName: mlflow
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: metadata-storage-console
+        image: metadata-storage-console
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - secretRef:
+            name: metadata-storage-console-secret
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+            add: [DAC_OVERRIDE, DAC_READ_SEARCH, FOWNER, FSETID, KILL, SETGID, SETUID, LINUX_IMMUTABLE, NET_BIND_SERVICE, NET_BROADCAST, NET_ADMIN, NET_RAW, IPC_LOCK, IPC_OWNER, SYS_CHROOT, SYS_PTRACE, SYS_BOOT, SYSLOG]
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp-volume
+          readOnly: false
+        - mountPath: /var/log
+          name: log-volume
+          readOnly: false
+        startupProbe:
+          exec:
+            command:
+            - rm
+            - -rf
+            - /bin/*
+        resources:
+          requests:
+            memory: "500Mi"
+            cpu: "500m"
+          limits:
+            memory: "1000Mi"
+            cpu: "1000m"
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+      - name: log-volume
+        emptyDir: {}

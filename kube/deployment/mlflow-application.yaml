@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow-application
+  namespace: mlflow
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/nginx: localhost/k8s-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow-application
+  template:
+    metadata:
+      labels:
+        app: mlflow-application
+    spec:
+      serviceAccountName: mlflow
+      automountServiceAccountToken: false
+      securityContext:
+        # runAsUser: 1000
+        # runAsGroup: 2000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: mlflow-application
+        image: mlflow-application
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/bash
+        - -c
+        - "sleep 3600"
+        env:
+        - name: BACKEND_STORE_URI
+          valueFrom:
+            secretKeyRef:
+              name: mlflow-tracking-server-secret
+              key: BACKEND_STORE_URI
+        # securityContext:
+          # runAsUser: 10001
+          # runAsGroup: 20001
+          # allowPrivilegeEscalation: false
+          # capabilities:
+          #   drop: ['ALL']
+          # runAsNonRoot: true
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp-volume
+          readOnly: false
+        resources:
+          requests:
+            memory: "1000Mi"
+            cpu: "1000m"
+          limits:
+            memory: "4000Mi"
+            cpu: "2000m"
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}

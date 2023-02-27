@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: artifacts-storage
+  namespace: mlflow
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/nginx: localhost/k8s-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: artifacts-storage
+  template:
+    metadata:
+      labels:
+        app: artifacts-storage
+    spec:
+      serviceAccountName: mlflow
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 2000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: artifacts-storage
+        image: artifacts-storage
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 10001
+          runAsGroup: 20001
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ['ALL']
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /home/application
+          name: application-volume
+          readOnly: false
+        - mountPath: /.minio
+          name: minio-volume
+          readOnly: false
+        envFrom:
+        - secretRef:
+            name: artifacts-storage-secret
+        resources:
+          requests:
+            memory: "500Mi"
+            cpu: "500m"
+          limits:
+            memory: "2000Mi"
+            cpu: "1000m"
+      volumes:
+      - name: application-volume
+        emptyDir: {}
+      - name: minio-volume
+        emptyDir: {}

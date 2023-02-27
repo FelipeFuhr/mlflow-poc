@@ -1,0 +1,7 @@
+apiVersion: v1
+data:
+  DEFAULT_ARTIFACT_ROOT: http://mlflow-artifacts-server:8787/api/2.0/mlflow-artifacts/artifacts/experiments
+kind: ConfigMap
+metadata:
+  name: mlflow-tracking-server-configmap
+  namespace: mlflow

@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow-tracking-server
+  namespace: mlflow
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/nginx: localhost/k8s-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow-tracking-server
+  template:
+    metadata:
+      labels:
+        app: mlflow-tracking-server
+    spec:
+      serviceAccountName: mlflow
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 2000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: mlflow-tracking-server
+        image: mlflow-server
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/bash
+        - -c
+        - " mlflow server \
+            --host 0.0.0.0 \
+            --port 8787 \
+            --backend-store-uri ${BACKEND_STORE_URI} \
+            --default-artifact-root ${DEFAULT_ARTIFACT_ROOT} \
+            --gunicorn-opts '--log-level debug'"
+        env:
+        - name: DEFAULT_ARTIFACT_ROOT
+          valueFrom:
+            configMapKeyRef:
+              name: mlflow-tracking-server-configmap
+              key: DEFAULT_ARTIFACT_ROOT
+        - name: BACKEND_STORE_URI
+          valueFrom:
+            secretKeyRef:
+              name: mlflow-tracking-server-secret
+              key: BACKEND_STORE_URI
+        securityContext:
+          runAsUser: 10001
+          runAsGroup: 20001
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ['ALL']
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /home/application
+          name: application-volume
+          readOnly: false
+        resources:
+          requests:
+            memory: "500Mi"
+            cpu: "500m"
+          limits:
+            memory: "2000Mi"
+            cpu: "1000m"
+      volumes:
+      - name: application-volume
+        emptyDir: {}

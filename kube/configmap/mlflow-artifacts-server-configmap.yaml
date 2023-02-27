@@ -1,0 +1,7 @@
+apiVersion: v1
+data:
+  MLFLOW_S3_ENDPOINT_URL: http://artifacts-storage:9000
+kind: ConfigMap
+metadata:
+  name: mlflow-artifacts-server-configmap
+  namespace: mlflow

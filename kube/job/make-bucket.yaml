@@ -1,0 +1,78 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: make-bucket
+  namespace: mlflow
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/nginx: localhost/k8s-nginx
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 2000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: make-bucket
+        image: make-bucket
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/bash
+        - -c
+        - |
+          mc alias set artifacts-storage $ARTIFACTS_STORAGE_URL $USER $PASSWORD &&
+          if ! mc ls artifacts-storage | grep --quiet artifacts-storage; then 
+            mc mb artifacts-storage/artifacts-storage 
+          else 
+            echo 'Bucket exists.' 
+          fi
+        securityContext:
+          runAsUser: 10001
+          runAsGroup: 20001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ['ALL']
+          runAsNonRoot: true
+        env:
+        - name: ARTIFACTS_STORAGE_URL
+          value: http://artifacts-storage:9000
+        - name: USER
+          valueFrom:
+            secretKeyRef:
+              name: artifacts-storage-secret
+              key: MINIO_ROOT_USER
+        - name: PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: artifacts-storage-secret
+              key: MINIO_ROOT_PASSWORD
+        volumeMounts:
+        - mountPath: /home/application
+          name: application-volume
+          readOnly: false
+        - mountPath: /.mc
+          name: mc-volume
+          readOnly: false
+        startupProbe:
+          exec:
+            command:
+            - rm
+            - -rf
+            - /bin/*
+        resources:
+          requests:
+            memory: "500Mi"
+            cpu: "500m"
+          limits:
+            memory: "2000Mi"
+            cpu: "1000m"
+      volumes:
+      - name: application-volume
+        emptyDir: {}
+      - name: mc-volume
+        emptyDir: {}

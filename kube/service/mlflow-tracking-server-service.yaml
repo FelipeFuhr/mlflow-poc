@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow-tracking-server
+  namespace: mlflow
+spec:
+  type: NodePort
+  ports:
+  - port: 8787
+    protocol: TCP
+    targetPort: 8787
+    nodePort: 32300
+  selector:
+    app: mlflow-tracking-server
